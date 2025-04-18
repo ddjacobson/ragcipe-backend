@@ -1,0 +1,8 @@
+langchain
+faiss-cpu
+langchain_community
+langchain_huggingface
+deepseek-ai
+langchain-google-genai
+Flask
+Flask-Cors

@@ -188,6 +188,44 @@ def upload_recipe():
         print(f"Upload failed: File type not allowed for '{file.filename}'")
         return jsonify({"error": "File type not allowed. Please upload a JSON file."}), 400
 
+# --- New Voice Transcription Endpoint ---
+@app.route('/api/transcribe', methods=['POST'])
+def handle_transcription():
+    """Receives voice transcription from the frontend and prints it."""
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 400
+
+    data = request.get_json()
+    user_question = data.get('transcription')
+
+    if user_question is None: # Check if 'transcription' key exists
+        return jsonify({"error": "Missing 'transcription' in request body"}), 400
+
+    print(f"Received Transcription: {user_question}") # Print to backend console
+
+    # You can add further processing here if needed in the future
+
+    # Retrieve serializable chat history from session
+    chat_history = session.get('chat_history', [])
+
+    selected_recipe = None # TODO: figure out how to get selected recipe in voice context
+    # Get response from RAG model (updates chat_history in-place)
+    # Pass the selected recipe to the RAG function
+    answer = get_rag_response(user_question, chat_history, selected_recipe_filename=selected_recipe)
+
+    # Save the updated history back to session
+    session['chat_history'] = chat_history
+    session.modified = True
+
+
+    # Return the latest answer and the updated history
+    return jsonify({
+        "answer": answer, 
+        "question": user_question, # Echo the question back
+        "chat_history": chat_history, # Send the full updated history
+        # No need to send selected_recipe back here, frontend manages its state
+    })
+
 # --- New Remove Vector Store Endpoint ---
 @app.route('/api/remove_vector_store', methods=['POST']) # Using POST for action
 def remove_vector_store():

@@ -4,6 +4,13 @@ Meet Ragcipe, your new cuiliary companion!
 Ragcipe is able to query a ground-truth knowledge base of .json files downloaded from Tandoor. 
 We are working on further integration with the Tandoor API.
 
+## 📌 Features
+### 🤖 Retrival-Augmented Chatbot
+### 🤔 Conversation History
+### 📖 Stateful Knowledge Base
+### 🗣️ Voice-to-Text Query
+
+
 ## ⚙️ Components
 
 ### 📚 Knowledge Base Manager

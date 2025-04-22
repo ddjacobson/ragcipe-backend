@@ -6,7 +6,8 @@
 .pnp.js
 /rag_venv_1.0
 __pycache__
-k
+frontend
+recipes
 # testing
 /coverage
 

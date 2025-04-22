@@ -1,13 +1,15 @@
 import os
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_cors import CORS
+import kb_manager
 from werkzeug.utils import secure_filename
 import json
-import shutil # Import shutil
+import shutil
 
-# Import functions from rag.py and create_vector_store.py
-from rag import get_rag_response, list_recipes
-from create_vector_store import update_vector_store, DOCS_PATH, VECTORSTORE_PATH # Import VECTORSTORE_PATH
+# Import the single RAGEngine instance from rag.py
+from rag import get_rag_response, list_recipes, rag_engine_instance
+# Remove direct import of update_vector_store or related things from create_vector_store
+import constants # Import constants for path definitions
 
 # Check for API key on startup
 
@@ -24,7 +26,7 @@ app.secret_key = os.urandom(24)
 
 # --- Configuration ---
 # Define the upload folder relative to the app's root
-UPLOAD_FOLDER = DOCS_PATH 
+UPLOAD_FOLDER = constants.DOCS_PATH 
 # Define allowed file extensions
 ALLOWED_EXTENSIONS = {'json'} 
 
@@ -158,27 +160,29 @@ def upload_recipe():
              print("seeking file")
 
 
-        # --- Update Vector Store ---
-        print("Triggering vector store update...")
-        update_success = update_vector_store() # Call the refactored function
-        
+        # --- Update Vector Store on Disk --- 
+        print("Triggering knowledge base update on disk...")
+        # Use the static method from KnowledgeBaseManager
+        # It uses paths defined in constants.py by default
+        update_success = kb_manager.KnowledgeBaseManager.update_kb()
+
         if update_success:
-            print("Vector store updated successfully after upload.")
-             # Also update the list of recipes for the frontend
+            print("Knowledge base updated successfully on disk.")
+            # --- Reload Vector Store in RAG Engine --- 
+            print("Reloading vector store in RAG engine...")
+            rag_engine_instance.reload_vectorstore() # Reload the engine's store
+            
             updated_recipes = list_recipes() 
-
-            # add in logic where we restart the server
-
             return jsonify({
-                "message": f"Recipe '{filename}' uploaded and vector store updated.",
+                "message": f"Recipe '{filename}' uploaded and knowledge base updated.",
                 "filename": filename,
-                "recipes": updated_recipes # Send back the new list
+                "recipes": updated_recipes
                 }), 200
         else:
-            print("Vector store update failed after upload.")
-            # Consider deleting the uploaded file if the update fails?
+            print("Knowledge base update failed after upload.")
+            # Consider deleting the uploaded file if KB update fails?
             # os.remove(save_path) 
-            return jsonify({"error": "File uploaded, but failed to update vector store"}), 500
+            return jsonify({"error": "File uploaded, but failed to update knowledge base"}), 500
 
     else:
         print(f"Upload failed: File type not allowed for '{file.filename}'")
@@ -188,24 +192,36 @@ def upload_recipe():
 @app.route('/api/remove_vector_store', methods=['POST']) # Using POST for action
 def remove_vector_store():
     """Removes the existing vector store directory."""
-    print(f"Attempting to remove vector store at: {VECTORSTORE_PATH}")
-    if os.path.exists(VECTORSTORE_PATH):
-        try:
-            shutil.rmtree(VECTORSTORE_PATH)
-            print(f"Vector store directory '{VECTORSTORE_PATH}' removed successfully.")
-            # Optionally, clear the session's selected recipe if the store is gone?
-            # session.pop('selected_recipe', None)
-            # session.modified = True
-            return jsonify({"message": "Vector store removed successfully."}), 200
-        except OSError as e:
-            print(f"Error removing vector store directory '{VECTORSTORE_PATH}': {e}")
-            return jsonify({"error": f"Failed to remove vector store: {e}"}), 500
-        except Exception as e:
-            print(f"An unexpected error occurred while removing vector store: {e}")
-            return jsonify({"error": "An unexpected error occurred."}), 500
-    else:
-        print(f"Vector store directory '{VECTORSTORE_PATH}' not found. Nothing to remove.")
-        return jsonify({"message": "Vector store not found. Nothing to remove."}), 200 # It's not an error if it's already gone
+    vectorstore_path = constants.VECTORSTORE_PATH # Use path from constants
+    print(f"Attempting to remove vector store at: {vectorstore_path}")
+    store_existed = os.path.exists(vectorstore_path)
+    try:
+        if store_existed:
+            shutil.rmtree(vectorstore_path)
+            print(f"Vector store directory '{vectorstore_path}' removed successfully.")
+        else:
+             print(f"Vector store directory '{vectorstore_path}' not found. Nothing to remove.")
+
+        # --- Reload RAG Engine's Store (even if it didn't exist) ---
+        # This tells the engine to attempt loading, which will fail if the dir is gone,
+        # effectively clearing its internal store.
+        print("Reloading vector store in RAG engine (will clear if removed)...")
+        rag_engine_instance.reload_vectorstore()
+
+        # If the store existed and was removed, return 200 OK.
+        # If it didn't exist, also return 200 OK.
+        message = "Vector store removed successfully and engine reloaded." if store_existed else "Vector store not found, engine state refreshed."
+        return jsonify({"message": message}), 200
+
+    except OSError as e:
+        print(f"Error removing vector store directory '{vectorstore_path}': {e}")
+        # Attempt to reload engine even on error, maybe state is recoverable?
+        rag_engine_instance.reload_vectorstore()
+        return jsonify({"error": f"Failed to remove vector store: {e}"}), 500
+    except Exception as e:
+        print(f"An unexpected error occurred while removing vector store: {e}")
+        rag_engine_instance.reload_vectorstore()
+        return jsonify({"error": "An unexpected error occurred."}), 500
 
 # --- New Remove Single Recipe Endpoint ---
 @app.route('/api/remove_recipe', methods=['POST'])
@@ -220,61 +236,74 @@ def remove_recipe():
     if not filename_to_remove:
         return jsonify({"error": "Missing 'filename' in request body"}), 400
 
-    # Basic security check: Ensure filename doesn't try to escape the UPLOAD_FOLDER
-    # secure_filename might change the name, so we do a path join and check instead
-    target_path = os.path.abspath(os.path.join(app.config['UPLOAD_FOLDER'], filename_to_remove))
-    base_path = os.path.abspath(app.config['UPLOAD_FOLDER'])
+    # Use constant for base path
+    base_path = os.path.abspath(constants.DOCS_PATH)
+    target_path = os.path.abspath(os.path.join(base_path, filename_to_remove))
 
-    # Prevent path traversal (e.g., ../../etc/passwd)
+    # Security check
     if not target_path.startswith(base_path + os.sep) or not os.path.basename(target_path) == filename_to_remove:
          print(f"Attempt to access file outside designated folder rejected: {filename_to_remove}")
          return jsonify({"error": "Invalid filename or path"}), 400
 
     print(f"Attempting to remove recipe file: {target_path}")
+    file_existed = os.path.exists(target_path)
 
-    if os.path.exists(target_path):
-        try:
+    try:
+        if file_existed:
             os.remove(target_path)
             print(f"Recipe file '{filename_to_remove}' removed successfully.")
+        else:
+             print(f"Recipe file '{filename_to_remove}' not found at '{target_path}'.")
 
-            # --- Update Vector Store ---
-            print("Triggering vector store update after file removal...")
-            update_success = update_vector_store() # Rebuild the index
+        # --- Update Vector Store on Disk (regardless of whether file existed) --- 
+        # This ensures consistency if the file was somehow deleted externally.
+        print("Triggering knowledge base update on disk after removal attempt...")
+        update_success = kb_manager.KnowledgeBaseManager.update_kb()
 
-            if update_success:
-                print("Vector store updated successfully after recipe removal.")
-                # Also update the list of recipes for the frontend
-                updated_recipes = list_recipes()
-                # If the removed recipe was the selected one, clear the selection
-                if session.get('selected_recipe') == filename_to_remove:
-                     session['selected_recipe'] = None
-                     session.modified = True
-                return jsonify({
-                    "message": f"Recipe '{filename_to_remove}' removed and vector store updated.",
-                    "recipes": updated_recipes, # Send back the new list
-                    "cleared_selection": session.get('selected_recipe') is None # Indicate if selection was cleared
-                    }), 200
-            else:
-                print("Vector store update failed after recipe removal.")
-                 # This is tricky - the file is gone, but the index is stale. 
-                 # Maybe try to restore the file? For now, just report the error.
-                return jsonify({"error": "Recipe file removed, but failed to update vector store. Index may be inconsistent."}), 500
+        if update_success:
+            print("Knowledge base updated successfully on disk.")
+            # --- Reload Vector Store in RAG Engine --- 
+            print("Reloading vector store in RAG engine...")
+            rag_engine_instance.reload_vectorstore()
+            
+            updated_recipes = list_recipes()
+            cleared_selection = False
+            if session.get('selected_recipe') == filename_to_remove:
+                 session['selected_recipe'] = None
+                 session.modified = True
+                 cleared_selection = True
+            
+            status_code = 200 if file_existed else 404 # OK if removed, Not Found if it wasn't there
+            message = f"Recipe '{filename_to_remove}' processed. Knowledge base updated." 
+            if not file_existed: message += " (File was not found)."
+                
+            return jsonify({
+                "message": message,
+                "recipes": updated_recipes,
+                "cleared_selection": cleared_selection
+                }), status_code
+        else:
+            print("Knowledge base update failed after recipe removal attempt.")
+             # Even if KB update fails, try to reload the engine with whatever is on disk currently
+            print("Attempting to reload RAG engine with potentially stale index...")
+            rag_engine_instance.reload_vectorstore() 
+            # Report error, but the file might be gone and index stale
+            error_message = "Recipe file processed, but failed to update knowledge base. Index may be inconsistent."
+            if not file_existed: error_message = "Recipe file not found, and failed to update knowledge base."
+            return jsonify({"error": error_message}), 500
 
-        except OSError as e:
-            print(f"Error removing recipe file '{target_path}': {e}")
-            return jsonify({"error": f"Failed to remove recipe file: {e}"}), 500
-        except Exception as e:
-            print(f"An unexpected error occurred during recipe removal: {e}")
-            return jsonify({"error": "An unexpected error occurred during recipe removal."}), 500
-    else:
-        print(f"Recipe file '{filename_to_remove}' not found at '{target_path}'.")
-        # Also trigger vector store update if file not found, in case index is inconsistent
-        update_vector_store() 
-        updated_recipes = list_recipes()
-        return jsonify({
-                "message": f"Recipe '{filename_to_remove}' not found. Vector store possibly resynced.", 
-                "recipes": updated_recipes
-                }), 404 # Not Found
+    except OSError as e:
+        print(f"Error removing recipe file '{target_path}': {e}")
+        # Attempt KB update and engine reload even on file removal error
+        kb_manager.KnowledgeBaseManager.update_kb() 
+        rag_engine_instance.reload_vectorstore()
+        return jsonify({"error": f"Failed to remove recipe file: {e}"}), 500
+    except Exception as e:
+        print(f"An unexpected error occurred during recipe removal: {e}")
+        # Attempt KB update and engine reload even on other errors
+        kb_manager.KnowledgeBaseManager.update_kb() 
+        rag_engine_instance.reload_vectorstore()
+        return jsonify({"error": "An unexpected error occurred during recipe removal."}), 500
 
 if __name__ == '__main__':
     # Ensure the recipes directory exists on startup

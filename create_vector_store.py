@@ -28,7 +28,7 @@ def format_recipe(recipe):
     
     return f"Recipe: {name}\n\nDescription:\n{desc}\n\nIngredients:\n{ingredients_str}\n\nSteps:\n{steps}"
 
-def update_vector_store():
+# def update_vector_store():
     """Reads all JSON recipes from DOCS_PATH, creates embeddings, and saves a new vector store."""
     print("Starting vector store update...")
     if os.path.exists(VECTORSTORE_PATH):
@@ -81,7 +81,7 @@ def update_vector_store():
 
 
 # Keep the main execution block if you want to run this script directly
-if __name__ == '__main__':
-    update_vector_store()
+# if __name__ == '__main__':
+    # update_vector_store()
 
 # Removed old script logic outside the function

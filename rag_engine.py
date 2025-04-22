@@ -23,7 +23,7 @@ class RAGEngine:
             llm = ChatGoogleGenerativeAI(
                 model=constants.LLM_MODEL_NAME,
                 google_api_key=constants.LLM_API_KEY,
-                temperature=1.0
+                temperature=constants.LLM_TEMPERATURE
             )
             print("LLM initialized successfully.")
             return llm
@@ -69,8 +69,8 @@ class RAGEngine:
             5. Base your answer *primarily* on the retrieved context if available and relevant. If a questions is not contextually relevent based on the history, disregard and attempt to clear up confusion. If context is available use it.
             6. Be conversational with the user.
             7. If giving a list, format nicely in a human readable list, ordered or unordered. If giving ingredients or steps, please give as much detail as possible.
-            8. **Format your entire response using Markdown.** Use features like lists, bolding, etc., where appropriate for readability.
-
+            8. If asked for something relating to the knowledge-base, use only the retrived knowledge. Do not reference chat history. It is okay to relate recipe names with their filenames
+            9. **Format your entire response using Markdown.** Use features like lists, bolding, etc., where appropriate for readability.
             Context:
             {context}"""
 

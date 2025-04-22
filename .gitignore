@@ -8,6 +8,7 @@
 __pycache__
 frontend
 recipes
+vectordb
 # testing
 /coverage
 

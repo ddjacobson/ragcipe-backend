@@ -4,9 +4,9 @@
 /node_modules
 /.pnp
 .pnp.js
-.venv
+/rag_venv_1.0
 __pycache__
-
+k
 # testing
 /coverage
 

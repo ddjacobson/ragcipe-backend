@@ -207,7 +207,6 @@ function App() {
     }
   };
 
-  // Modified to accept optional question text for programmatic sending (e.g., from speech)
   const handleSendMessage = async (questionText = null) => {
     // Use provided text or fallback to userInput state, then trim
     const question = (questionText !== null ? questionText : userInput).trim();
@@ -479,6 +478,7 @@ const handleRemoveRecipe = async (recipeFilename, event) => {
     } else {
         // Start listening
         try {
+
             setSpeechError(''); // Clear previous errors
             recognitionRef.current.start();
             setIsListening(true);

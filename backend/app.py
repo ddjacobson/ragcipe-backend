@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify, session, send_from_directory
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 import kb_manager
 from werkzeug.utils import secure_filename
@@ -9,12 +9,7 @@ import shutil
 # Import the single RAGEngine instance from rag.py
 from rag import get_rag_response, list_recipes, rag_engine_instance
 # Remove direct import of update_vector_store or related things from create_vector_store
-import constants # Import constants for path definitions
-
-# Check for API key on startup
-
-# if not os.getenv("GOOGLE_API_KEY"):
-#     raise ValueError("GOOGLE_API_KEY environment variable not set. Please set it before running.")
+import constants as constants # Import constants for path definitions
 
 app = Flask(__name__)
 # Enable CORS for all domains on all routes, or specify origins for production

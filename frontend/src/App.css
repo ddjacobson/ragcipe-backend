@@ -1,0 +1,545 @@
+/* General Styles & Variables */
+:root {
+    --primary-color: #e85a4f; /* Muted Coral/Tomato Red */
+    --secondary-color: #e98074; /* Lighter shade */
+    --background-color: #f8f5f2; /* Warm off-white, like parchment */
+    --sidebar-bg: #d8c3a5; /* Earthy beige/tan */
+    --text-color: #333; /* Dark grey */
+    --text-light: #f8f5f2;
+    --border-color: #c7b198; /* Slightly darker beige */
+    --accent-color: #8e8d8a; /* Muted grey */
+    --hover-color: #e85a4fcc; /* Primary color with transparency */
+
+    --font-primary: 'Poppins', sans-serif;
+    --font-secondary: 'Playfair Display', serif;
+    --border-radius: 8px;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Apply basic box-sizing and reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #f4f7f6; /* Light grey background */
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-size: 16px;
+}
+
+/* Make container take full viewport height if needed */
+#root {
+    width: 100%;
+    height: 100vh;
+    display: flex; 
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    display: flex;
+    width: 90%;
+    max-width: 1200px;
+    height: 85vh;
+    max-height: 800px;
+    background-color: #fff; /* White container background */
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    overflow: hidden;
+}
+
+/* Sidebar Styles */
+.sidebar {
+    width: 280px;
+    background-color: var(--sidebar-bg);
+    padding: 30px 25px;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0; /* Prevent sidebar from shrinking */
+}
+
+.sidebar .logo {
+    font-family: var(--font-secondary);
+    color: var(--primary-color);
+    font-size: 2.5rem;
+    margin-bottom: 30px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.sidebar h2 {
+    font-size: 1.2rem;
+    color: var(--text-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+#recipe-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+}
+
+.recipe-item { 
+    /* Make item a flex container */
+    display: flex;
+    justify-content: space-between; /* Push name and button apart */
+    align-items: center; /* Vertically align name and button */
+    padding: 10px 15px; 
+    border-bottom: 1px dashed var(--border-color);
+    font-size: 0.95rem;
+    color: #555;
+    cursor: pointer; 
+    transition: background-color 0.2s ease, color 0.2s ease; 
+    border-radius: 4px; 
+    margin-bottom: 3px; 
+}
+
+/* Give recipe name room to grow but prevent overflow */
+.recipe-name {
+    flex-grow: 1; /* Allow name to take available space */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 10px; /* Space between name and button */
+}
+
+.recipe-item:last-child {
+    border-bottom: none;
+}
+
+.recipe-item:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: var(--primary-color);
+}
+
+.recipe-item:hover .remove-recipe-btn {
+    opacity: 1; /* Show button on hover */
+    color: var(--primary-color); /* Match text hover color */
+}
+
+.recipe-item.selected {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.recipe-item.selected .remove-recipe-btn {
+    color: var(--text-light); /* Match selected text color */
+    opacity: 1; /* Keep visible when selected */
+}
+
+.recipe-item.removing {
+     opacity: 0.5; /* Indicate activity */
+     pointer-events: none; /* Prevent interaction while removing */
+}
+
+/* Style for the remove recipe button */
+.remove-recipe-btn {
+    background: none;
+    border: none;
+    padding: 0 5px; /* Add some clickable area */
+    cursor: pointer;
+    color: #aaa; /* Muted color */
+    opacity: 0.5; /* Hidden until hover */
+    transition: opacity 0.2s ease, color 0.2s ease;
+    flex-shrink: 0; /* Prevent button shrinking */
+    display: flex; /* To center icon if needed */
+    align-items: center;
+    justify-content: center;
+    line-height: 1; /* Ensure consistent height */
+}
+
+.remove-recipe-btn:hover:not(:disabled) {
+    color: var(--primary-color); /* Match hover color */
+}
+
+.remove-recipe-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+}
+
+.remove-recipe-btn .trash-icon {
+    display: block; /* Ensure SVG behaves like a block */
+}
+
+/* Chat Area Styles */
+.chat-area {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #fff;
+    /* Prevent chat area from shrinking below content */
+    min-width: 0; 
+}
+
+.chat-header {
+    padding: 15px 25px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #fdfbf9; /* Slightly off-white header */
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.chat-header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+#clear-history-btn {
+    background-color: var(--accent-color);
+    color: var(--text-light);
+    border: none;
+    padding: 8px 15px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s ease;
+}
+
+#clear-history-btn:hover:not(:disabled) {
+    background-color: #7a7976;
+}
+
+#clear-history-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Styles for the context indicator */
+.context-indicator {
+    padding: 10px 25px;
+    background-color: var(--secondary-color);
+    color: var(--text-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.context-indicator span {
+    margin-right: 15px;
+}
+
+.context-indicator strong {
+    font-weight: 600;
+}
+
+.clear-context-btn {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 4px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.clear-context-btn:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.clear-context-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#chat-box {
+    flex-grow: 1;
+    padding: 25px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    background-color: var(--background-color); /* Match body background */
+}
+
+.message {
+    padding: 12px 18px;
+    border-radius: var(--border-radius);
+    max-width: 75%;
+    line-height: 1.5;
+    word-wrap: break-word;
+    font-size: 0.95rem; /* Slightly smaller message font */
+}
+
+.user-message {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+}
+
+.bot-message {
+    background-color: #e9e9e9; /* Light grey for bot */
+    color: var(--text-color);
+    align-self: flex-start;
+    border-bottom-left-radius: 0;
+}
+
+/* Style the first bot message (Welcome/Error/Clear) differently */
+/* But not the context set/clear messages */
+#chat-box .bot-message:first-child {
+    background-color: var(--secondary-color);
+    color: var(--text-light);
+}
+
+/* Loading indicator style */
+.bot-message.loading {
+    opacity: 0.7;
+}
+
+/* --- Updated Input Area Styles --- */
+.input-area {
+    display: flex;
+    align-items: flex-end; /* Align items to the bottom */
+    padding: 15px 25px; 
+    border-top: 1px solid var(--border-color);
+    background-color: #fdfbf9; /* Slightly off-white background */
+    gap: 10px; /* Space between textarea and buttons */
+    position: relative; /* For positioning the error message */
+    flex-shrink: 0; /* Prevent shrinking */
+    min-height: 80px; /* Ensure some minimum height */
+}
+
+.input-area textarea {
+    flex-grow: 1;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 10px 15px;
+    font-family: var(--font-primary);
+    font-size: 1rem;
+    resize: none; /* Disable manual resize */
+    min-height: 40px; /* Minimum height for one line */
+    max-height: 120px; /* Allow up to ~5-6 lines before scrolling */
+    overflow-y: auto; /* Add scrollbar if needed */
+    line-height: 1.4;
+    background-color: #fff;
+    transition: border-color 0.2s ease;
+}
+
+.input-area textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(232, 90, 79, 0.2); /* Subtle focus ring */
+}
+
+/* General Button Styling for Input Area */
+.input-area button {
+    flex-shrink: 0; /* Prevent buttons from shrinking */
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 0; /* Remove padding, rely on width/height and flex alignment */
+    height: 42px; /* Match textarea initial height */
+    width: 42px; 
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.input-area button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Mic Button Specific Styles */
+.mic-button {
+    background-color: transparent;
+    color: var(--accent-color);
+    border: 1px solid var(--border-color);
+}
+
+.mic-button:hover:not(:disabled) {
+    background-color: #eee; /* Subtle hover */
+    color: var(--primary-color);
+}
+
+.mic-button:disabled {
+    background-color: transparent; /* Keep background transparent when disabled */
+}
+
+/* Send Button Specific Styles */
+.send-button {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+}
+
+.send-button:hover:not(:disabled) {
+    background-color: var(--hover-color);
+}
+
+/* Speech Error Styling */
+.speech-error {
+    position: absolute;
+    bottom: -5px; /* Position slightly below the input area */
+    left: 25px; /* Align with input area padding */
+    color: #cc0000; /* Darker red for better visibility */
+    font-size: 0.8em;
+    margin: 0;
+    padding-top: 5px;
+}
+
+/* Remove Old Input/Send Button Selectors if they exist (Optional Cleanup) */
+/* If #user-input or #send-btn existed, their styles are now handled by */
+/* .input-area textarea and .input-area .send-button respectively. */
+/* You can safely remove the old #user-input and #send-btn rules if desired. */
+
+/* --- End Updated Input Area Styles --- */
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+}
+
+/* --- Manage Recipes & Index Section --- */
+.manage-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee; /* Separator line */
+}
+
+.manage-section h3 {
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.file-input-wrapper {
+    display: flex;
+    align-items: center; /* Align button and text vertically */
+    margin-bottom: 10px;
+}
+
+/* Style the wrapper button to look like other buttons */
+.btn-like {
+    display: inline-block; /* Allow setting padding */
+    padding: 8px 12px;
+    background-color: #555; /* Match sidebar item hover */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease;
+    margin-right: 10px; /* Space between button and filename */
+}
+
+.btn-like:hover {
+    background-color: #333;
+}
+
+.btn-like:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.selected-file-name {
+    font-size: 0.85em;
+    color: #666;
+    /* Truncate long filenames if needed */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px; /* Adjust as needed */
+}
+
+.button-group {
+    display: flex;
+    gap: 10px; /* Space between buttons */
+    margin-bottom: 10px;
+}
+
+/* General action button style */
+.action-button {
+    flex-grow: 1; /* Make buttons share space */
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease;
+    background-color: #007bff; /* Primary blue */
+    color: white;
+}
+
+.action-button:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+.action-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Specific style for potentially destructive actions */
+.danger-button {
+    background-color: #dc3545; /* Red */
+}
+
+.danger-button:hover:not(:disabled) {
+    background-color: #c82333;
+}
+
+/* Status Messages (shared by upload and remove) */
+.status-message {
+    font-size: 0.85em;
+    margin-top: 8px;
+    padding: 5px 8px;
+    border-radius: 3px;
+}
+
+.status-message.success {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.status-message.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}

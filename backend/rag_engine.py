@@ -4,8 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_huggingface import HuggingFaceEmbeddings # Keep for potential use, though loading is in kb_manager
-import constants
+import constants as constants
 import kb_manager # Import the refactored knowledge base manager
 
 class RAGEngine:

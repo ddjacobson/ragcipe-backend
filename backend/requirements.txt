@@ -1,0 +1,7 @@
+langchain
+langchain_community
+langchain_huggingface
+langchain_google_genai
+sentence-transformers
+faiss-cpu
+flask_cors

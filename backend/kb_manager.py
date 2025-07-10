@@ -5,7 +5,7 @@ import json
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings # type: ignore
-import constants # Import constants
+import constants as constants # Import constants
 
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 

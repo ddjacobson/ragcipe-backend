@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import './App.css'; // We'll create this next
+import { speak } from './utils/tts'; // Import the speak function
+import './App.css';
 
 // Define the base URL for the API. Use environment variables in a real app.
-const API_BASE_URL = 'http://localhost:5000'; 
+const API_BASE_URL = 'http://localhost:5000';
 
-// Simple Trash Can Icon (SVG)
+// --- SVG Icons ---
+
 const TrashIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="trash-icon">
     <polyline points="3 6 5 6 21 6"></polyline>
@@ -15,7 +17,6 @@ const TrashIcon = () => (
   </svg>
 );
 
-// Simple Microphone Icon (SVG)
 const MicrophoneIcon = ({ isListening }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={isListening ? "red" : "currentColor"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mic-icon">
     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -25,123 +26,126 @@ const MicrophoneIcon = ({ isListening }) => (
   </svg>
 );
 
+// Speaker Icon for TTS Toggle
+const SpeakerIcon = ({ isMuted }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`speaker-icon ${isMuted ? 'muted' : ''}`}>
+    {isMuted ? (
+      <>
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="9" x2="17" y2="15"></line>
+        <line x1="17" y1="9" x2="23" y2="15"></line>
+      </>
+    ) : (
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+    )}
+  </svg>
+);
+
+
 function App() {
+  // --- State Management ---
   const [recipes, setRecipes] = useState([]);
-  const [chatHistory, setChatHistory] = useState([]); // Stores { type: 'human'/'ai', content: '...' }
+  const [chatHistory, setChatHistory] = useState([]);
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState(null); // <-- New state for selected recipe
-  const chatBoxRef = useRef(null); // To auto-scroll chat
-  // --- State for file upload ---
+  const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState('');
-  const [isUploading, setIsUploading] = useState(false); // To disable button during upload
-  const fileInputRef = useRef(null); // Ref for the file input
-  // --- State for vector store removal ---
+  const [isUploading, setIsUploading] = useState(false);
   const [removeStatus, setRemoveStatus] = useState('');
-  const [isRemoving, setIsRemoving] = useState(false); // To disable remove button
-  const [isRemovingRecipe, setIsRemovingRecipe] = useState(null); // Track which recipe is being removed
-  // --- State for Speech Recognition ---
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [isRemovingRecipe, setIsRemovingRecipe] = useState(null);
   const [isListening, setIsListening] = useState(false);
-  const [speechError, setSpeechError] = useState(''); // To display speech API errors
-  const recognitionRef = useRef(null); // Ref to store the SpeechRecognition instance
-  const [speechSupported, setSpeechSupported] = useState(true); // Track if SpeechRecognition is supported
+  const [speechError, setSpeechError] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const [isTtsEnabled, setIsTtsEnabled] = useState(true); // State for TTS toggle
+
+  // --- Refs ---
+  const chatBoxRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // --- Effects ---
 
   // Initialize Speech Recognition
   useEffect(() => {
-    // Check for browser support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      console.warn("Speech Recognition API not supported in this browser.");
-      setSpeechError("Speech recognition not supported in this browser.");
-      setSpeechSupported(false); // Mark as not supported
+      console.warn("Speech Recognition API not supported.");
+      setSpeechError("Speech recognition not supported.");
+      setSpeechSupported(false);
       return;
     }
-    setSpeechSupported(true); // Mark as supported
+    setSpeechSupported(true);
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false; // Process speech after user stops talking
-    recognition.interimResults = false; // We only want the final result
-    recognition.lang = 'en-US'; // Set language
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
 
     recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
-      console.log("Speech recognized:", transcript);
-      // setUserInput(transcript); // No longer needed here, handleSendMessage will show it in chat
-      
-      // 1. Send the raw transcript to the backend logging endpoint (as originally requested)
       sendTranscriptionToBackend(transcript);
-      
-      // 2. Immediately process the transcript as a question using the existing chat logic
       handleSendMessage(transcript);
-
-      setIsListening(false); // Turn off listening indicator (might be redundant if onend also fires)
+      setIsListening(false);
     };
 
     recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      let errorMessage = `Speech error: ${event.error}`;
-      if (event.error === 'no-speech') {
-        errorMessage = "No speech detected. Please try again.";
-      } else if (event.error === 'audio-capture') {
-        errorMessage = "Microphone error. Ensure it's connected and permissions are granted.";
-      } else if (event.error === 'not-allowed') {
-        errorMessage = "Permission denied. Please allow microphone access.";
-      }
-      setSpeechError(errorMessage);
-      setIsListening(false); // Turn off listening indicator
+      let msg = `Speech error: ${event.error}`;
+      if (event.error === 'no-speech') msg = "No speech detected.";
+      if (event.error === 'audio-capture') msg = "Microphone error.";
+      if (event.error === 'not-allowed') msg = "Microphone permission denied.";
+      setSpeechError(msg);
+      setIsListening(false);
     };
 
     recognition.onend = () => {
-      // Ensure listening state is off when recognition naturally ends
-      if (isListening) {
-        setIsListening(false);
-      }
+      if (isListening) setIsListening(false);
     };
 
     recognitionRef.current = recognition;
+  }, []);
 
-  }, []); // Run only once on mount
-
-  // Fetch initial data (recipes, history) on component mount
+  // Fetch initial data on mount
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/init`, {credentials: 'include'}); // Include credentials for session cookie
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      const response = await fetch(`${API_BASE_URL}/api/init`, { credentials: 'include' });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       setRecipes(data.recipes || []);
-      // Reset chat history and selected recipe on initial load or error
       setChatHistory(data.chat_history || []);
-      setSelectedRecipe(data.selected_recipe || null); // Load selected recipe from session if available
-       // Add initial welcome message if history is empty
-       if (!data.chat_history || data.chat_history.length === 0) {
-         setChatHistory([{ type: 'ai', content: 'Welcome! Ask me anything about the recipes. Click a recipe name to focus questions on it.' }]);
+      setSelectedRecipe(data.selected_recipe || null);
+      if (!data.chat_history || data.chat_history.length === 0) {
+        setChatHistory([{ type: 'ai', content: 'Welcome! Ask me anything about the recipes.' }]);
       }
     } catch (error) {
       console.error("Error fetching initial data:", error);
-      setChatHistory([{ type: 'ai', content: `Error loading initial data: ${error.message}. Please ensure the backend is running.` }]);
-      setRecipes([]); // Ensure recipes list is empty on error
-      setSelectedRecipe(null); // Clear selection on error
+      setChatHistory([{ type: 'ai', content: `Error loading data: ${error.message}` }]);
+      setRecipes([]);
+      setSelectedRecipe(null);
     } finally {
       setIsLoading(false);
     }
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   useEffect(() => {
     fetchInitialData();
-  }, [fetchInitialData]); // Run fetchInitialData on mount
+  }, [fetchInitialData]);
 
-  // Auto-scroll chat box to bottom when new messages are added
+  // Auto-scroll chat and handle TTS on new messages
   useEffect(() => {
     if (chatBoxRef.current) {
       chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
     }
-  }, [chatHistory]);
+    // Speak the last message if it's from the AI and TTS is enabled
+    if (chatHistory.length > 0) {
+      const lastMessage = chatHistory[chatHistory.length - 1];
+      if (lastMessage.type === 'ai' && !lastMessage.isLoading && isTtsEnabled) {
+        speak(lastMessage.content);
+      }
+    }
+  }, [chatHistory, isTtsEnabled]);
 
   // --- Event Handlers ---
 
@@ -674,6 +678,13 @@ const handleRemoveRecipe = async (recipeFilename, event) => {
           </button>
           <button onClick={handleSendMessage} disabled={isLoading || !userInput.trim()} className="send-button">
             Send
+          </button>
+          <button 
+            onClick={() => setIsTtsEnabled(prev => !prev)} 
+            className="tts-button" 
+            title={isTtsEnabled ? "Disable Text-to-Speech" : "Enable Text-to-Speech"}
+          >
+            <SpeakerIcon isMuted={!isTtsEnabled} />
           </button>
         </div>
       </main>

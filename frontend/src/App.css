@@ -396,6 +396,22 @@ body {
     background-color: var(--hover-color);
 }
 
+/* TTS Button Specific Styles */
+.tts-button {
+    background-color: transparent;
+    color: var(--accent-color);
+    border: 1px solid var(--border-color);
+}
+
+.tts-button:hover:not(:disabled) {
+    background-color: #eee;
+    color: var(--primary-color);
+}
+
+.speaker-icon.muted {
+    opacity: 0.5;
+}
+
 /* Speech Error Styling */
 .speech-error {
     position: absolute;

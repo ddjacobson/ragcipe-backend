@@ -9,6 +9,8 @@ __pycache__
 backend/recipes
 backend/vectordb
 frontend/build
+GEMINI.md
+/brain
 
 # testing
 /coverage

@@ -59,6 +59,7 @@ function App() {
   const [speechError, setSpeechError] = useState('');
   const [speechSupported, setSpeechSupported] = useState(true);
   const [isTtsEnabled, setIsTtsEnabled] = useState(true); // State for TTS toggle
+  const [isSpeechMode, setIsSpeechMode] = useState(false); // State for speech mode
 
   // --- Refs ---
   const chatBoxRef = useRef(null);
@@ -79,15 +80,20 @@ function App() {
     setSpeechSupported(true);
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
     recognition.lang = 'en-US';
 
     recognition.onresult = (event) => {
-      const transcript = event.results[event.results.length - 1][0].transcript.trim();
-      sendTranscriptionToBackend(transcript);
-      handleSendMessage(transcript);
-      setIsListening(false);
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          transcript += event.results[i][0].transcript;
+        }
+      }
+      
+      if (transcript) {
+        console.log("Recognized speech:", transcript);
+        handleSendMessage(transcript.trim());
+      }
     };
 
     recognition.onerror = (event) => {
@@ -100,11 +106,12 @@ function App() {
     };
 
     recognition.onend = () => {
-      if (isListening) setIsListening(false);
+        
+        recognition.start();
     };
 
     recognitionRef.current = recognition;
-  }, []);
+  }, [isSpeechMode, isListening]);
 
   // Fetch initial data on mount
   const fetchInitialData = useCallback(async () => {
@@ -469,62 +476,31 @@ const handleRemoveRecipe = async (recipeFilename, event) => {
     }
 };
 
-  // --- Speech Recognition Handlers ---
   const handleMicClick = () => {
     if (!recognitionRef.current) {
         setSpeechError("Speech recognition not initialized.");
         return;
     }
     if (isListening) {
-        // Stop listening if already listening (though continuous=false might make this less needed)
         recognitionRef.current.stop();
         setIsListening(false);
     } else {
-        // Start listening
         try {
-
-            setSpeechError(''); // Clear previous errors
+            setSpeechError('');
+            if (isSpeechMode) {
+              recognitionRef.current.continuous = true;
+              recognitionRef.current.interimResults = true;
+            } else {
+              recognitionRef.current.continuous = false;
+              recognitionRef.current.interimResults = false;
+            }
             recognitionRef.current.start();
             setIsListening(true);
         } catch (err) {
-             // Handle potential errors if start() is called inappropriately
             console.error("Error starting speech recognition:", err);
             setSpeechError("Could not start listening. Please check microphone permissions.");
             setIsListening(false);
         }
-    }
-  };
-
-  // --- Send Transcription to Backend ---
-  const sendTranscriptionToBackend = async (transcript) => {
-    if (!transcript) return;
-    console.log("Sending transcription to backend:", transcript);
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ transcription: transcript }),
-            credentials: 'include', // Optional: include if session context is needed
-        });
-        if (!response.ok) {
-            // Try to parse error from backend
-            let errorMsg = `HTTP error! status: ${response.status}`;
-            try {
-                const errorData = await response.json();
-                errorMsg = errorData.error || errorMsg;
-            } catch (parseError) { /* Ignore if response isn't JSON */ }
-            throw new Error(errorMsg);
-        }
-        const data = await response.json();
-        console.log("Backend response to transcription:", data.message);
-        // Optionally show a success message to the user (e.g., using a toast notification)
-        // setSpeechError('Transcription sent.'); // Or clear error: setSpeechError('');
-    } catch (error) {
-        console.error("Error sending transcription to backend:", error);
-        setSpeechError(`Failed to send transcription: ${error.message}`);
-        // Optionally show a persistent error message to the user
     }
   };
 
@@ -675,6 +651,12 @@ const handleRemoveRecipe = async (recipeFilename, event) => {
             className="mic-button" 
             title={isListening ? "Stop listening" : "Start listening"}>
             <MicrophoneIcon isListening={isListening} />
+          </button>
+          <button onClick={() => setIsSpeechMode(prev => !prev)} 
+            disabled={isLoading || !speechSupported}
+            className={`speech-mode-button ${isSpeechMode ? 'active' : ''}`}
+            title={isSpeechMode ? "Deactivate speech mode" : "Activate speech mode"}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
           </button>
           <button onClick={handleSendMessage} disabled={isLoading || !userInput.trim()} className="send-button">
             Send

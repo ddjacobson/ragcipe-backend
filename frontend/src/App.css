@@ -316,16 +316,30 @@ body {
 }
 
 /* --- Updated Input Area Styles --- */
+.speech-mode-button {
+  background-color: transparent;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  color: #555;
+}
+
+.speech-mode-button.active {
+  background-color: #e0f7fa;
+  border-color: #00bcd4;
+  color: #00bcd4;
+}
+
 .input-area {
-    display: flex;
-    align-items: flex-end; /* Align items to the bottom */
-    padding: 15px 25px; 
-    border-top: 1px solid var(--border-color);
-    background-color: #fdfbf9; /* Slightly off-white background */
-    gap: 10px; /* Space between textarea and buttons */
-    position: relative; /* For positioning the error message */
-    flex-shrink: 0; /* Prevent shrinking */
-    min-height: 80px; /* Ensure some minimum height */
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-top: 1px solid #ddd;
 }
 
 .input-area textarea {

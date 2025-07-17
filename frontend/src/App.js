@@ -60,6 +60,7 @@ function App() {
   const [speechSupported, setSpeechSupported] = useState(true);
   const [isTtsEnabled, setIsTtsEnabled] = useState(true); // State for TTS toggle
   const [isSpeechMode, setIsSpeechMode] = useState(false); // State for speech mode
+  const [isSpeaking, setIsSpeaking] = useState(false); // State for TTS activity
 
   // --- Refs ---
   const chatBoxRef = useRef(null);
@@ -91,8 +92,8 @@ function App() {
       }
       
       if (transcript) {
-        console.log("Recognized speech:", transcript);
         handleSendMessage(transcript.trim());
+        setUserInput('');
       }
     };
 
@@ -106,12 +107,23 @@ function App() {
     };
 
     recognition.onend = () => {
-        
+      if (isSpeechMode && !isSpeaking) {
+        setIsListening(true);
         recognition.start();
+      }
+      
     };
 
+    recognition.onspeechend = () => {
+      recognition.stop();
+    };
+
+    if (!isSpeaking) {
+     recognition.start(); // start listnening if not speaking
+    }
+
     recognitionRef.current = recognition;
-  }, [isSpeechMode, isListening]);
+  }, [isSpeechMode, isListening, isSpeaking]);
 
   // Fetch initial data on mount
   const fetchInitialData = useCallback(async () => {
@@ -149,7 +161,11 @@ function App() {
     if (chatHistory.length > 0) {
       const lastMessage = chatHistory[chatHistory.length - 1];
       if (lastMessage.type === 'ai' && !lastMessage.isLoading && isTtsEnabled) {
-        speak(lastMessage.content);
+        speak(
+          lastMessage.content,
+          () => setIsSpeaking(true),  // onStart callback
+          () => setIsSpeaking(false) // onEnd callback
+        );
       }
     }
   }, [chatHistory, isTtsEnabled]);
@@ -342,6 +358,23 @@ const handleFileChange = (event) => {
   }
 };
 
+const handleDataSourceSync = async () => {
+  console.log("Syncing data source...");
+
+  // need to get credentials... hardcode them now
+
+
+  const response = await fetch(`${API_BASE_URL}/data/reload-source`, {
+    method: 'POST',
+    body: {},
+    credentials: 'include', // Important for session cookie 
+    // Note: Don't set 'Content-Type': 'multipart/form-data' manually,
+    // fetch does it automatically when using FormData and sets the boundary.
+  });
+
+
+};
+
 const handleFileUpload = async () => {
   if (!selectedFile || isUploading) return;
 
@@ -477,11 +510,13 @@ const handleRemoveRecipe = async (recipeFilename, event) => {
 };
 
   const handleMicClick = () => {
+    if (isSpeaking) return; // Prevent listening while speaking
     if (!recognitionRef.current) {
         setSpeechError("Speech recognition not initialized.");
         return;
     }
     if (isListening) {
+        console.log("Stopping speech recognition...");
         recognitionRef.current.stop();
         setIsListening(false);
     } else {
@@ -562,6 +597,12 @@ const handleRemoveRecipe = async (recipeFilename, event) => {
                 className="action-button"
             >
                 {isUploading ? 'Uploading...' : 'Upload Recipe'}
+            </button>
+            <button
+                onClick={handleDataSourceSync}
+                className="action-button"
+            >
+                {isUploading ? 'Syncing...' : 'Sync Recipes'}
             </button>
             <button
                 onClick={handleRemoveVectorStore}

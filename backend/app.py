@@ -5,6 +5,8 @@ import kb_manager
 from werkzeug.utils import secure_filename
 import json
 import shutil
+import requests
+from constants import TANDOOR_API_KEY
 
 # Import the single RAGEngine instance from rag.py
 from rag import get_rag_response, list_recipes, rag_engine_instance
@@ -337,6 +339,16 @@ def remove_recipe():
         kb_manager.KnowledgeBaseManager.update_kb() 
         rag_engine_instance.reload_vectorstore()
         return jsonify({"error": "An unexpected error occurred during recipe removal."}), 500
+
+@app.route('/data/reload-source', methods=['POST'])
+async def sync_data():
+
+    headers = {
+        "Authorization": f"Bearer {TANDOOR_API_KEY}"
+    }
+    print("Syncing data...")
+    res = await requests.get('https://recipe.danomite.net/api/recipe', headers=headers)
+    print(res)
 
 if __name__ == '__main__':
     # Ensure the recipes directory exists on startup
